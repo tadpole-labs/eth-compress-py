@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ethcompress"
+version = "0.0.1"
+description = "Compressing read only eth_call"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "web3>=6.20.4",
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "pytest>=9.0.1",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.5",
+    "pre-commit>=3.7",
+    "bumpver>=2025.1131",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ethcompress*", "compressions*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "I",
+  "B",
+  "UP",
+  "N",
+  "SIM",
+  "C4",
+  "RUF",
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["ethcompress"]
+combine-as-imports = true
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.10"
+mypy_path = ["src"]
+packages = ["ethcompress"]
+strict = false
+check_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+warn_return_any = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+show_error_codes = true
+pretty = true
+explicit_package_bases = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.bumpver]
+current_version = "0.0.1"
+version_pattern = "MAJOR.MINOR.PATCH"
+commit = true
+tag = true
+tag_name = "v{version}"
+push = false
+
+[tool.bumpver.file_patterns]
+"pyproject.toml" = [
+  'version = "{version}"',
+]
