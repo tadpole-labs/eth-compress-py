@@ -186,4 +186,4 @@ class AsyncCompressionMiddleware:
         raise TypeError("AsyncCompressionMiddleware: expected (make_request, w3) or (w3)")
 
 
-__all__ = ["CompressionMiddleware", "AsyncCompressionMiddleware", "DECOMPRESSOR_ADDRESS"]
+__all__ = ["DECOMPRESSOR_ADDRESS", "AsyncCompressionMiddleware", "CompressionMiddleware"]

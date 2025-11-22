@@ -18,4 +18,4 @@ def rle_fwd_bytecode(address: str) -> str:
     return _rle_fwd_bytecode(address)
 
 
-__all__ = ["jit_bytecode", "flz_fwd_bytecode", "rle_fwd_bytecode"]
+__all__ = ["flz_fwd_bytecode", "jit_bytecode", "rle_fwd_bytecode"]

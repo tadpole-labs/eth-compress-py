@@ -231,9 +231,9 @@ def compress_call_fn(
 
 
 __all__ = [
-    "CompressedCall",
-    "compress_eth_call",
-    "compress_call_fn",
-    "compress_call_data",
     "DECOMPRESSOR_ADDRESS",
+    "CompressedCall",
+    "compress_call_data",
+    "compress_call_fn",
+    "compress_eth_call",
 ]

@@ -58,13 +58,13 @@ def _jit_decompressor(calldata: str) -> str:
     push_counter = 0
     stack_cnt: dict[int, int] = {}
 
-    def ctr(m: dict, k, delta: int) -> None:
+    def ctr(m: dict, k: int | tuple | None, delta: int) -> None:
         m[k] = m.get(k, 0) + delta
 
-    def inc(m: dict, k) -> None:
+    def inc(m: dict, k: int | tuple | None) -> None:
         ctr(m, k, 1)
 
-    def dec(m: dict, k) -> None:
+    def dec(m: dict, k: int | tuple | None) -> None:
         ctr(m, k, -1)
 
     def pop2() -> tuple[int, int]:
@@ -200,7 +200,7 @@ def _jit_decompressor(calldata: str) -> str:
         return cost
 
     class PlanStep:
-        __slots__ = ("t", "v", "b", "o")
+        __slots__ = ("t", "v", "b", "o")  # noqa: RUF023
 
         def __init__(
             self,

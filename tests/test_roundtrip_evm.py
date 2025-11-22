@@ -10,16 +10,15 @@ Tests JIT, FLZ, and CD compression algorithms by:
 
 from __future__ import annotations
 
-import json
-import time
 from dataclasses import dataclass
+import json
 from pathlib import Path
+import time
 from typing import Any
 
 import pytest
 
 from ethcompress import cd_compress, flz_compress, jit_bytecode
-from ethcompress.compressor import DECOMPRESSOR_ADDRESS
 
 from .evm_helpers import (
     DECOMPRESSOR_ADDRESS as DECOMPRESSOR_ADDRESS_BYTES,
@@ -243,11 +242,11 @@ def test_roundtrip_on_base_blocks():
     """Test compression roundtrips on real Base blockchain transactions."""
     # Load the fixture
     fixture_path = Path(__file__).parent / "fixture" / "base-blocks.json"
-    with open(fixture_path, "r") as f:
+    with open(fixture_path) as f:
         cached = json.load(f)
 
     blocks = cached["blocks"]
-    MIN_CALLDATA_SIZE = 800
+    min_calldata_size = 800
 
     # Collect transactions with significant calldata
     all_transactions: list[Transaction] = []
@@ -258,7 +257,7 @@ def test_roundtrip_on_base_blocks():
                     tx.get("to")
                     and tx.get("input")
                     and tx["input"] != "0x"
-                    and len(tx["input"]) >= MIN_CALLDATA_SIZE
+                    and len(tx["input"]) >= min_calldata_size
                 ):
                     all_transactions.append(
                         Transaction(from_addr=tx["from"], to=tx["to"], input=tx["input"])
@@ -338,7 +337,7 @@ def test_roundtrip_on_base_blocks():
 
     # Print results
     print(f"\n{'=' * 60}")
-    print(f"ROUNDTRIP TEST RESULTS")
+    print("ROUNDTRIP TEST RESULTS")
     print(f"{'=' * 60}")
     print(
         f"{len(results)} txs | JIT: \033[32m{success_cnt['jit']}\033[0m | "

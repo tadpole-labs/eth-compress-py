@@ -7,7 +7,6 @@ from eth.chains.base import MiningChain
 from eth.db.atomic import AtomicDB
 from eth.vm.forks.prague import PragueVM
 
-
 # Echo Contract bytecode
 # Returns whatever calldata it receives
 # - CALLDATASIZE (0x36): Get size of calldata

@@ -10,7 +10,7 @@ def _hex(b: bytes) -> str:
 def test_auto_select_small_compares_cd_vs_flz():
     target = "0x000000000000000000000000000000000000dEaD"
     data_small = (b"ABCD" * 256) + os.urandom(256)
-    to, calldata, override, meta = compress_call_data(
+    to, _calldata, override, meta = compress_call_data(
         _hex(data_small), target, alg="auto", min_size=800
     )
     assert meta["algo"] in ("cd", "flz", "vanilla")
