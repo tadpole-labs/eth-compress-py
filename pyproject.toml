@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ethcompress"
-version = "0.0.1"
+version = "0.1.0"
 description = "Compressing read only eth_call"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,7 @@ dev = [
     "ruff>=0.14.5",
     "pre-commit>=3.7",
     "bumpver>=2025.1131",
+    "py-evm>=0.12.1b1",
 ]
 
 [tool.setuptools.packages.find]
