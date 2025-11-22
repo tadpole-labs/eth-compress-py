@@ -1,5 +1,12 @@
 from .utils import hex_string as _hex_string, norm_hex
 
+"""
+Library for compressing and decompressing bytes.
+
+Reference:
+    - Solady (https://github.com/vectorized/solady/blob/main/src/utils/LibZip.sol)
+    - Calldata compression by clabby (https://github.com/clabby/op-kompressor)
+"""
 
 def _parse_byte(s: str, i: int) -> int:
     return int(s[i : i + 2], 16)
@@ -129,8 +136,7 @@ def cd_decompress(data: str) -> str:
 
 def rle_fwd_bytecode(address: str) -> str:
     return (
-        "0x"
-        + "5f5f5b368110602d575f8083813473"
+        "0x5f5f5b368110602d575f8083813473"
         + norm_hex(address)
         + "5af1503d5f803e3d5ff35b600180820192909160031981019035185f1a8015604c57815301906002565b505f19815282820192607f9060031981019035185f1a818111156072575b160101906002565b838101368437606a56"
     )

@@ -1,5 +1,12 @@
 from .utils import bytes_to_hex as _bytes_to_hex, hex_string as _hex_string, norm_hex
 
+"""
+Library for compressing and decompressing bytes.
+
+Reference:
+    - Solady (https://github.com/vectorized/solady/blob/main/src/utils/LibZip.sol)
+    - FastLZ by ariya (https://github.com/ariya/FastLZ)
+"""
 
 def flz_compress(data: str) -> str:
     """Compresses hex encoded data with the FastLZ variant used by Solady.
@@ -139,8 +146,7 @@ def flz_decompress(data: str) -> str:
 
 def flz_fwd_bytecode(address: str) -> str:
     return (
-        "0x"
-        + "365f73"
+        "0x365f73"
         + norm_hex(address)
         + "815b838110602f575f80848134865af1503d5f803e3d5ff35b803590815f1a8060051c908115609857600190600783149285831a6007018118840218600201948383011a90601f1660081b0101808603906020811860208211021890815f5b80830151818a015201858110609257505050600201019201916018565b82906075565b6001929350829150019101925f5b82811060b3575001916018565b85851060c1575b60010160a6565b936001818192355f1a878501530194905060ba56"
     )

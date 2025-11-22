@@ -2,7 +2,7 @@ import math
 
 from .utils import hex_to_bytes as _hex_to_bytes, norm_hex
 
-MAX_160_BIT = (1 << 160) - 1
+MAX_128_BIT = (1 << 128) - 1
 MASK32 = (1 << 256) - 1
 
 
@@ -36,7 +36,6 @@ def _jit_decompressor(calldata: str) -> str:
     ops: list[int] = []
     data: list[list[int] | None] = []
     stack: list[int] = []
-    stack_freq2: dict[int, int] = {}
     tracked_mem_size = 0
     mem: dict[int, int] = {}
 
@@ -59,27 +58,32 @@ def _jit_decompressor(calldata: str) -> str:
     push_counter = 0
     stack_cnt: dict[int, int] = {}
 
+    def ctr(m: dict, k, delta: int) -> None:
+        m[k] = m.get(k, 0) + delta
+
+    def inc(m: dict, k) -> None:
+        ctr(m, k, 1)
+
+    def dec(m: dict, k) -> None:
+        ctr(m, k, -1)
+
     def pop2() -> tuple[int, int]:
         a = stack.pop()
         b = stack.pop()
         return a, b
 
-    def bump(m: dict, k: int | tuple | None) -> None:
-        m[k] = m.get(k, 0) + 1
-
     def push_op(op: int) -> None:
         ops.append(op)
-        bump(op_freq, op)
+        inc(op_freq, op)
 
     def push_d(d: list[int] | None) -> None:
-        data.append(d if d is not None else None)
-        bump(data_freq, tuple(d) if d is not None else None)
+        data.append(d if d else None)
+        inc(data_freq, tuple(d) if d else None)
 
-    def push_s(v: int) -> None:
+    def push_s(v: int, freq: int = 1) -> None:
         nonlocal push_counter
         stack.append(v)
-        bump(stack_freq, v)
-        bump(stack_freq2, v)
+        ctr(stack_freq, v, freq)
         push_counter += 1
         stack_cnt[v] = push_counter
 
@@ -87,27 +91,58 @@ def _jit_decompressor(calldata: str) -> str:
         nonlocal tracked_mem_size
         tracked_mem_size = round_up_32(offset + size)
 
+    def is_in_stack(w):
+        return w in stack or w == 0xE0 or w == 32
+
     def add_op(op: int, imm: list[int] | None = None) -> None:
         nonlocal tracked_mem_size
-        if op == 0x59:  # MSIZE
-            push_s(tracked_mem_size)
+        if op == 0x36:    # CALLDATASIZE
+            push_s(32)
+        elif op == 0x59:  # MSIZE
+            push_s(tracked_mem_size, 0)
         elif op == 0x1B:  # SHL
             shift, val = pop2()
+            if ops and ops[-1] == 144:
+                ops.pop()
+                data.pop()
+                shift, val = val, shift
             push_s((val << shift) & MASK32)
         elif op == 0x17:  # OR
             a, b = pop2()
+            if ops and ops[-1] == 144:
+                ops.pop()
+                data.pop()
             push_s((a | b) & MASK32)
         elif (0x60 <= op <= 0x7F) or op == 0x5F:  # PUSHx/PUSH0
             v = 0
             for b in imm or []:
                 v = ((v << 8) | b) & MASK32
-            idx = get_stack_idx(v)
-            push_s(v)
-            if idx != -1 and op != 0x5F:
-                if stack_freq2.get(v, 0) * 2 < stack_freq.get(v, 0):
-                    push_op(0x80 + idx)  # DUPx
-                    push_d(None)
+            if v == 224:
+                push_s(v)
+                push_op(0x30)  # ADDRESS
+                push_d(None)
                 return
+            idx = get_stack_idx(v)
+            if idx != -1 and op != 0x5F:
+                last = stack_freq.get(v, 0) == 0
+                if idx == 0 and last:
+                    dec(stack_freq, v)
+                    return
+
+                if idx == 1 and last:
+                    push_op(144)  # SWAP2
+                    a, b = pop2()
+                    stack.append(b)
+                    stack.append(a)
+                    push_d(None)
+                    dec(stack_freq, v)
+                    return
+
+                push_s(v, -1)
+                push_op(0x80 + idx)
+                push_d(None)
+                return
+            push_s(v)        
         elif op == 0x51:  # MLOAD
             k = int(stack.pop())
             push_s(mem.get(k, 0))
@@ -133,6 +168,9 @@ def _jit_decompressor(calldata: str) -> str:
             return
         if value == 0:
             add_op(0x5F)
+            return
+        if value == 32:
+            add_op(0x36)
             return
         v = int(value)
         bytes_be: list[int] = []
@@ -190,6 +228,7 @@ def _jit_decompressor(calldata: str) -> str:
         plan.append(PlanStep("op", o=o))
         op(o)
 
+    push_n(1)
     for base in range(0, n, 32):
         word = bytearray(32)
         copy_end = min(base + 32, n)
@@ -210,13 +249,7 @@ def _jit_decompressor(calldata: str) -> str:
         if not seg:
             continue
 
-        byte8s = all(s == e for s, e in seg)
-        if byte8s:
-            for s, _e in seg:
-                emit_push_n(word[s])
-                emit_push_n(base + s)
-                emit_op(0x53)  # MSTORE8
-            continue
+
 
         literal = bytes(word[seg[0][0] : 32])
         literal_cost = 1 + len(literal)
@@ -224,7 +257,7 @@ def _jit_decompressor(calldata: str) -> str:
         base_bytes = math.ceil(math.log2(base + 1) / 8) if base > 0 else 1
         word_hex = _bytes_to_hex(bytes(word))
 
-        if literal_cost > 5:
+        if literal_cost > 8:
             if word_hex in word_cache:
                 if literal_cost > word_cache_cost.get(word_hex, 0) + base_bytes:
                     emit_push_n(word_cache[word_hex])
@@ -233,12 +266,20 @@ def _jit_decompressor(calldata: str) -> str:
                     emit_op(0x52)  # MSTORE
                     continue
             elif word_cache_cost.get(word_hex, 0) != -1:
-                reuse_cost = base_bytes + 4
+                reuse_cost = base_bytes + 3
                 freq = cnt_words(hex_data, word_hex)
                 word_cache_cost[word_hex] = reuse_cost if (freq * 32) > (freq * reuse_cost) else -1
                 word_cache[word_hex] = base
-
-        if literal_cost <= est_shl_cost(seg):
+        byte8s = all(s == e for s, e in seg)
+        if is_in_stack(literal):
+            emit_push_b(literal)
+        elif byte8s:
+            for s, _e in seg:
+                emit_push_n(word[s])
+                emit_push_n(base + s)
+                emit_op(0x53)  # MSTORE8
+            continue
+        elif literal_cost <= est_shl_cost(seg):
             emit_push_b(literal)
         else:
             first = True
@@ -264,14 +305,14 @@ def _jit_decompressor(calldata: str) -> str:
     pre_candidates = [
         (val, freq)
         for val, freq in stack_freq.items()
-        if (isinstance(val, int) and (val <= MAX_160_BIT)) and (freq >= 2) and (val != 0)
+        if (isinstance(val, int) and (freq > 1) and (val != 32) and (val != 224) and (val <= MAX_128_BIT)) 
     ]
     pre_candidates.sort(key=lambda x: stack_cnt.get(x[0], 0), reverse=True)
-    for val, _ in pre_candidates[:14]:
+
+    for val, _ in pre_candidates[:13]:
         push_n(val)
-
-    stack_freq2 = {}
-
+        
+    push_n(1)
     # Second pass: emit ops based on plan
     for step in plan:
         if step.t == "num":
@@ -297,5 +338,5 @@ def _jit_decompressor(calldata: str) -> str:
             out.extend(data[i] or [])
 
     # Epilogue: CALLVALUE; PUSH0 CALLDATALOAD; GAS; CALL; POP; RETURNDATACOPY/RETURN
-    suffix = bytes.fromhex("345f355af1503d5f5f3e3d5ff3")
+    suffix = bytes.fromhex("345f355af13d5f5f3e3d5ff3")
     return "0x" + _uint8_to_hex(out) + suffix.hex()
