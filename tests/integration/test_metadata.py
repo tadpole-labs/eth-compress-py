@@ -138,26 +138,28 @@ def test_integration_metadata_timings():
     t0_v, t1_v, raw_v = results["vanilla"]
     v = raw_v.hex() if hasattr(raw_v, "hex") else str(raw_v)
     vanilla_hex = v if v.startswith("0x") else ("0x" + v)
-    print(f"metadata RAW: time_ms={(t1_v-t0_v)*1000:.2f}, calldata_bytes={(len(data_hex)-2)//2}")
+    print(
+        f"metadata RAW: time_ms={(t1_v - t0_v) * 1000:.2f}, calldata_bytes={(len(data_hex) - 2) // 2}"
+    )
     _bn_v, ret_v = decode_aggregate_output(w3, vanilla_hex)
 
     t0_cd, t1_cd, raw_cd = results["cd"]
     _bn_cd, ret_cd = decode_aggregate_output(w3, raw_cd)
     assert ret_cd == ret_v
     print(
-        f"metadata CD: time_ms={(t1_cd-t0_cd)*1000:.2f}, compressed={(len(cd_data)-2)//2}, code={(len(cd_code)-2)//2}"
+        f"metadata CD: time_ms={(t1_cd - t0_cd) * 1000:.2f}, compressed={(len(cd_data) - 2) // 2}, code={(len(cd_code) - 2) // 2}"
     )
 
     t0_flz, t1_flz, raw_flz = results["flz"]
     _bn_flz, ret_flz = decode_aggregate_output(w3, raw_flz)
     assert ret_flz == ret_v
     print(
-        f"metadata FLZ: time_ms={(t1_flz-t0_flz)*1000:.2f}, compressed={(len(flz_data)-2)//2}, code={(len(flz_code)-2)//2}"
+        f"metadata FLZ: time_ms={(t1_flz - t0_flz) * 1000:.2f}, compressed={(len(flz_data) - 2) // 2}, code={(len(flz_code) - 2) // 2}"
     )
 
     t0_jit, t1_jit, raw_jit = results["jit"]
     _bn_jit, ret_jit = decode_aggregate_output(w3, raw_jit)
     assert ret_jit == ret_v
     print(
-        f"metadata JIT: time_ms={(t1_jit-t0_jit)*1000:.2f}, calldata={(len(jit_calldata)-2)//2}, code={(len(jit_code)-2)//2}"
+        f"metadata JIT: time_ms={(t1_jit - t0_jit) * 1000:.2f}, calldata={(len(jit_calldata) - 2) // 2}, code={(len(jit_code) - 2) // 2}"
     )

@@ -64,9 +64,7 @@ class CompressionMetrics:
     failures: list[dict[str, Any]] | None = None
 
 
-def _test_transaction_roundtrip(
-    tx: Transaction, tx_index: int, chain
-) -> CompressionMetrics:
+def _test_transaction_roundtrip(tx: Transaction, tx_index: int, chain) -> CompressionMetrics:
     """Test a single transaction with all compression algorithms."""
     original_calldata = tx.input
     src_bytes = (len(original_calldata) - 2) // 2  # Remove 0x prefix
@@ -263,9 +261,7 @@ def test_roundtrip_on_base_blocks():
                     and len(tx["input"]) >= MIN_CALLDATA_SIZE
                 ):
                     all_transactions.append(
-                        Transaction(
-                            from_addr=tx["from"], to=tx["to"], input=tx["input"]
-                        )
+                        Transaction(from_addr=tx["from"], to=tx["to"], input=tx["input"])
                     )
 
     # If no transactions found, skip the test
@@ -274,7 +270,7 @@ def test_roundtrip_on_base_blocks():
 
     # Limit to first 10 transactions for performance
     all_transactions = all_transactions[:200]
-    
+
     print(f"\nTesting {len(all_transactions)} transactions from Base blocks...")
 
     results: list[CompressionMetrics] = []
@@ -316,9 +312,7 @@ def test_roundtrip_on_base_blocks():
                     "algorithm": f["algorithm"],
                     "error": f["error"],
                     "expectedLength": len(f["expected"]) if f.get("expected") else 0,
-                    "reconstructedLength": len(f["reconstructed"])
-                    if f.get("reconstructed")
-                    else 0,
+                    "reconstructedLength": len(f["reconstructed"]) if f.get("reconstructed") else 0,
                     "expected": f.get("expected"),
                     "reconstructed": f.get("reconstructed"),
                     "compressedPayload": f.get("payload"),
@@ -343,9 +337,9 @@ def test_roundtrip_on_base_blocks():
     avg_src_size = mean(src_sizes)
 
     # Print results
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"ROUNDTRIP TEST RESULTS")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(
         f"{len(results)} txs | JIT: \033[32m{success_cnt['jit']}\033[0m | "
         f"FLZ: \033[32m{success_cnt['flz']}\033[0m | "
@@ -353,27 +347,22 @@ def test_roundtrip_on_base_blocks():
     )
     print(f"Avg Src Size: {avg_src_size:.1f} bytes")
     print(
-        f"Compression Ratio: JIT {mean(jit_ratios)*100:.1f}% | "
-        f"FLZ {mean(flz_ratios)*100:.1f}% | "
-        f"CD {mean(cd_ratios)*100:.1f}%"
+        f"Compression Ratio: JIT {mean(jit_ratios) * 100:.1f}% | "
+        f"FLZ {mean(flz_ratios) * 100:.1f}% | "
+        f"CD {mean(cd_ratios) * 100:.1f}%"
     )
-    print(
-        f"Gas Used: JIT {mean(jit_gas):.0f} | "
-        f"FLZ {mean(flz_gas):.0f} | "
-        f"CD {mean(cd_gas):.0f}"
-    )
+    print(f"Gas Used: JIT {mean(jit_gas):.0f} | FLZ {mean(flz_gas):.0f} | CD {mean(cd_gas):.0f}")
     print(f"Elapsed Time: {elapsed_time:.2f}s")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Assertions
-    assert success_cnt["jit"] == len(
-        results
-    ), f"JIT roundtrip failures: {len(results) - success_cnt['jit']}"
-    assert success_cnt["flz"] == len(
-        results
-    ), f"FLZ roundtrip failures: {len(results) - success_cnt['flz']}"
-    assert success_cnt["cd"] == len(
-        results
-    ), f"CD roundtrip failures: {len(results) - success_cnt['cd']}"
+    assert success_cnt["jit"] == len(results), (
+        f"JIT roundtrip failures: {len(results) - success_cnt['jit']}"
+    )
+    assert success_cnt["flz"] == len(results), (
+        f"FLZ roundtrip failures: {len(results) - success_cnt['flz']}"
+    )
+    assert success_cnt["cd"] == len(results), (
+        f"CD roundtrip failures: {len(results) - success_cnt['cd']}"
+    )
     assert len(results) > 0, "No transactions were tested"
-

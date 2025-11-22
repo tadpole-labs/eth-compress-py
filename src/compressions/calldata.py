@@ -8,6 +8,7 @@ Reference:
     - Calldata compression by clabby (https://github.com/clabby/op-kompressor)
 """
 
+
 def _parse_byte(s: str, i: int) -> int:
     return int(s[i : i + 2], 16)
 

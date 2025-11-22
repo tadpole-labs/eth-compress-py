@@ -96,7 +96,7 @@ def execute_call_with_state_override(
         message=message,
         transaction_context=tx_context,
     )
-    
+
     # Apply the computation to actually run the EVM code
     computation = computation.apply_computation(
         vm.state,
@@ -124,4 +124,3 @@ def hex_to_bytes(hex_str: str) -> bytes:
 def bytes_to_hex(data: bytes) -> str:
     """Convert bytes to hex string with 0x prefix."""
     return "0x" + data.hex()
-

@@ -102,26 +102,28 @@ def test_symbols_end_to_end():
     except Exception:
         v = str(raw_v)
     vanilla_hex = v if v.startswith("0x") else ("0x" + v)
-    print(f"symbols RAW: time_ms={(t1_v-t0_v)*1000:.2f}, calldata_bytes={(len(data_hex)-2)//2}")
+    print(
+        f"symbols RAW: time_ms={(t1_v - t0_v) * 1000:.2f}, calldata_bytes={(len(data_hex) - 2) // 2}"
+    )
     _bn_v, ret_v = decode_aggregate_output(w3, vanilla_hex)
 
     t0_cd, t1_cd, raw_cd = results["cd"]
     _bn_cd, ret_cd = decode_aggregate_output(w3, raw_cd)
     assert ret_cd == ret_v
     print(
-        f"symbols CD: time_ms={(t1_cd-t0_cd)*1000:.2f}, compressed_bytes={(len(cd_data)-2)//2}, code_bytes={(len(cd_code)-2)//2}"
+        f"symbols CD: time_ms={(t1_cd - t0_cd) * 1000:.2f}, compressed_bytes={(len(cd_data) - 2) // 2}, code_bytes={(len(cd_code) - 2) // 2}"
     )
 
     t0_flz, t1_flz, raw_flz = results["flz"]
     _bn_flz, ret_flz = decode_aggregate_output(w3, raw_flz)
     assert ret_flz == ret_v
     print(
-        f"symbols FLZ: time_ms={(t1_flz-t0_flz)*1000:.2f}, compressed_bytes={(len(flz_data)-2)//2}, code_bytes={(len(flz_code)-2)//2}"
+        f"symbols FLZ: time_ms={(t1_flz - t0_flz) * 1000:.2f}, compressed_bytes={(len(flz_data) - 2) // 2}, code_bytes={(len(flz_code) - 2) // 2}"
     )
 
     t0_jit, t1_jit, raw_jit = results["jit"]
     _bn_jit, ret_jit = decode_aggregate_output(w3, raw_jit)
     assert ret_jit == ret_v
     print(
-        f"symbols JIT: time_ms={(t1_jit-t0_jit)*1000:.2f}, calldata_bytes={(len(jit_calldata)-2)//2}, code_bytes={(len(jit_code)-2)//2}"
+        f"symbols JIT: time_ms={(t1_jit - t0_jit) * 1000:.2f}, calldata_bytes={(len(jit_calldata) - 2) // 2}, code_bytes={(len(jit_code) - 2) // 2}"
     )

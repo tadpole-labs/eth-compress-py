@@ -96,7 +96,7 @@ def _jit_decompressor(calldata: str) -> str:
 
     def add_op(op: int, imm: list[int] | None = None) -> None:
         nonlocal tracked_mem_size
-        if op == 0x36:    # CALLDATASIZE
+        if op == 0x36:  # CALLDATASIZE
             push_s(32)
         elif op == 0x59:  # MSIZE
             push_s(tracked_mem_size, 0)
@@ -142,7 +142,7 @@ def _jit_decompressor(calldata: str) -> str:
                 push_op(0x80 + idx)
                 push_d(None)
                 return
-            push_s(v)        
+            push_s(v)
         elif op == 0x51:  # MLOAD
             k = int(stack.pop())
             push_s(mem.get(k, 0))
@@ -249,8 +249,6 @@ def _jit_decompressor(calldata: str) -> str:
         if not seg:
             continue
 
-
-
         literal = bytes(word[seg[0][0] : 32])
         literal_cost = 1 + len(literal)
 
@@ -305,13 +303,19 @@ def _jit_decompressor(calldata: str) -> str:
     pre_candidates = [
         (val, freq)
         for val, freq in stack_freq.items()
-        if (isinstance(val, int) and (freq > 1) and (val != 32) and (val != 224) and (val <= MAX_128_BIT)) 
+        if (
+            isinstance(val, int)
+            and (freq > 1)
+            and (val != 32)
+            and (val != 224)
+            and (val <= MAX_128_BIT)
+        )
     ]
     pre_candidates.sort(key=lambda x: stack_cnt.get(x[0], 0), reverse=True)
 
     for val, _ in pre_candidates[:13]:
         push_n(val)
-        
+
     push_n(1)
     # Second pass: emit ops based on plan
     for step in plan:

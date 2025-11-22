@@ -8,6 +8,7 @@ Reference:
     - FastLZ by ariya (https://github.com/ariya/FastLZ)
 """
 
+
 def flz_compress(data: str) -> str:
     """Compresses hex encoded data with the FastLZ variant used by Solady.
 

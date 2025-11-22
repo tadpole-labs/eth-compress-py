@@ -18,4 +18,4 @@ def test_jit_suffix_and_nonempty():
     assert len(bc) > 2
     # Known trailer from implementation (JIT epilogue)
     assert bc.endswith("345f355af13d5f5f3e3d5ff3")
-    print(f"JIT bytecode: bytes={(len(bc)-2)//2} gen_ms={(t1-t0)*1000:.3f}")
+    print(f"JIT bytecode: bytes={(len(bc) - 2) // 2} gen_ms={(t1 - t0) * 1000:.3f}")

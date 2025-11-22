@@ -18,7 +18,7 @@ def test_cd_roundtrip_zero_and_ff_runs():
     t2 = time.perf_counter()
     assert decomp == h
     print(
-        f"CD runs: in={len(data)}B comp={(len(comp)-2)//2}B comp_ms={(t1-t0)*1000:.3f} decomp_ms={(t2-t1)*1000:.3f}"
+        f"CD runs: in={len(data)}B comp={(len(comp) - 2) // 2}B comp_ms={(t1 - t0) * 1000:.3f} decomp_ms={(t2 - t1) * 1000:.3f}"
     )
 
 
@@ -33,5 +33,5 @@ def test_cd_roundtrip_random_small_medium():
         t2 = time.perf_counter()
         assert decomp == h
         print(
-            f"CD random: n={n} comp={(len(comp)-2)//2}B comp_ms={(t1-t0)*1000:.3f} decomp_ms={(t2-t1)*1000:.3f}"
+            f"CD random: n={n} comp={(len(comp) - 2) // 2}B comp_ms={(t1 - t0) * 1000:.3f} decomp_ms={(t2 - t1) * 1000:.3f}"
         )
