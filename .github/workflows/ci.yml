@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a7eac68fb9809dea845d802897dc5c723910fa3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.10
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run ruff format check
+        run: uv run ruff format --check .
+
+      - name: Run ruff lint
+        run: uv run ruff check .
+
+      - name: Run mypy
+        run: uv run mypy src
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3
+        with:
+          persist-credentials: false
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@5a7eac68fb9809dea845d802897dc5c723910fa3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.10
+
+      - name: Install dependencies
+        run: uv sync --all-groups
+
+      - name: Run tests
+        run: uv run pytest -v
+
+  all-tests-pass:
+    name: All Tests Pass
+    if: always()
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - name: Check all tests passed
+        if: ${{ needs.lint.result != 'success' || needs.test.result != 'success' }}
+        run: exit 1
