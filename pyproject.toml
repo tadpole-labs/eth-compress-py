@@ -4,12 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ethcompress"
-version = "0.1.0"
+version = "0.1.1"
 description = "Compressing read only eth_call"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "web3>=6.20.4",
+    "web3>=6.0.0",
 ]
 
 [dependency-groups]
@@ -75,7 +75,7 @@ testpaths = ["tests"]
 addopts = "-q"
 
 [tool.bumpver]
-current_version = "0.0.1"
+current_version = "0.1.1"
 version_pattern = "MAJOR.MINOR.PATCH"
 commit = true
 tag = true
