@@ -44,9 +44,8 @@ def test_async_middleware_compressed_and_fallback(fail: bool) -> None:
     async def make_request(method, params):
         return await prov.make_request(method, params)
 
-    middleware = mw(make_request, w3)
-
     async def run_case():
+        middleware = await mw(make_request, w3)
         tx = {"to": "0x000000000000000000000000000000000000dEaD", "data": _hex_zero_bytes(1600)}
         res = await middleware("eth_call", [tx, "latest"])
         # If compressed path is successful, expect 0x1234, else fallback to 0xabcd
@@ -67,9 +66,8 @@ def test_async_middleware_merges_override():
     async def make_request(method, params):
         return await prov.make_request(method, params)
 
-    middleware = mw(make_request, w3)
-
     async def run_case():
+        middleware = await mw(make_request, w3)
         tx = {"to": "0x000000000000000000000000000000000000dEaD", "data": _hex_zero_bytes(1600)}
         existing = {"0x0000000000000000000000000000000000000002": {"code": "0x5f5ff3"}}
         _ = await middleware("eth_call", [tx, "latest", existing])

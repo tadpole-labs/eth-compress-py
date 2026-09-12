@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from ethcompress.compressor import DECOMPRESSOR_ADDRESS, compress_eth_call
 
 
@@ -79,3 +81,20 @@ def test_execute_compressed_failure_no_fallback_raises():
     except RuntimeError:
         raised = True
     assert raised
+
+
+def test_execute_vanilla_with_fallback_disabled():
+    cc = compress_eth_call("0x" + "11" * 20, "0x1234", allow_fallback=False)
+    w3 = W3(FakeProvider())
+    assert cc.algo == "vanilla"
+    assert cc.execute(w3, block="0x123") == "0xabcd"
+    assert len(w3.provider.calls) == 1
+    assert w3.provider.calls[0]["params"] == [{"to": cc.to, "data": cc.data}, "0x123"]
+
+
+def test_execute_preserves_transport_error_without_fallback():
+    cc = compress_eth_call("0x" + "11" * 20, b"ABCD" * 512, alg="flz", allow_fallback=False)
+    w3 = W3(FakeProvider(fail_compressed=True))
+    with pytest.raises(RuntimeError, match="simulated compressed failure"):
+        cc.execute(w3)
+    assert len(w3.provider.calls) == 1

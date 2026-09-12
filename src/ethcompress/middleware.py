@@ -1,8 +1,36 @@
 from __future__ import annotations
 
-from typing import Any
-
 from .compressor import DECOMPRESSOR_ADDRESS, compress_call_data
+
+
+def _compressed_params(params: list, *, alg: str, min_size: int) -> list | None:
+    if not params:
+        return None
+    tx = params[0]
+    to = tx.get("to")
+    data = tx.get("data")
+    if not to or not data:
+        return None
+    existing_override = params[2] if len(params) >= 3 else None
+    # Any override at this address belongs to the caller, regardless of checksum case.
+    if existing_override and any(
+        address.lower() == DECOMPRESSOR_ADDRESS.lower() for address in existing_override
+    ):
+        return None
+    new_to, new_data, override, meta = compress_call_data(data, to, alg=alg, min_size=min_size)
+    if meta["algo"] == "vanilla":
+        return None
+
+    payload = list(params)
+    payload[0] = {**tx, "to": new_to, "data": new_data}
+    if len(payload) < 2:
+        payload.append("latest")
+    merged_override = {**(existing_override or {}), **(override or {})}
+    if len(payload) < 3:
+        payload.append(merged_override)
+    else:
+        payload[2] = merged_override
+    return payload
 
 
 class CompressionMiddleware:
@@ -18,84 +46,40 @@ class CompressionMiddleware:
         self.allow_fallback = allow_fallback
 
     def _build(self, make_request, w3):
-        def middleware(method: str, params: list) -> dict[str, Any]:
+        def middleware(method, params):
             if method != "eth_call":
-                return dict(make_request(method, params))
-
-            if not params:
-                return dict(make_request(method, params))
-
-            # Parse eth_call params: [tx, block/tag?, override?]
-            tx = params[0] if len(params) >= 1 else {}
-            block = params[1] if len(params) >= 2 else "latest"
-            existing_override = params[2] if len(params) >= 3 else None
-
-            to = tx.get("to")
-            data_hex = tx.get("data")
-            if not to or not data_hex:
-                return dict(make_request(method, params))
-
+                return make_request(method, params)
             try:
-                new_to, new_data, override, meta = compress_call_data(
-                    data_hex, to, alg=self.alg, min_size=self.min_size
-                )
+                payload = _compressed_params(params, alg=self.alg, min_size=self.min_size)
             except Exception:
-                return dict(make_request(method, params))
-
-            if meta.get("algo") == "vanilla":
-                return dict(make_request(method, params))
-
-            # Merge overrides if possible (simple merge; if conflicts, skip compression)
-            merged_override = None
+                if not self.allow_fallback:
+                    raise
+                return make_request(method, params)
+            if payload is None:
+                return make_request(method, params)
             try:
-                if existing_override and override:
-                    # best effort: if both set code for decompressor address, prefer existing
-                    merged = {**override}
-                    for k, v in existing_override.items():
-                        if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
-                            merged[k] = {**merged[k], **v}
-                        else:
-                            merged[k] = v
-                    merged_override = merged
-                else:
-                    merged_override = existing_override or override
+                result = make_request(method, payload)
             except Exception:
-                merged_override = existing_override or override
-
-            new_tx = {"to": new_to, "data": new_data}
-            payload = [new_tx, block]
-            if merged_override:
-                payload.append(merged_override)
-
-            res = make_request("eth_call", payload)
-            if "result" in res:
-                return dict(res)
-
-            if self.allow_fallback:
-                return dict(make_request(method, params))
-            return dict(res)
+                if not self.allow_fallback:
+                    raise
+            else:
+                if "result" in result or not self.allow_fallback:
+                    return result
+            return make_request(method, params)
 
         return middleware
 
     def __call__(self, *args):  # v6/v7 compatibility
-        # v6 signature: (make_request, w3)
         if len(args) == 2:
-            make_request, w3 = args
-            return self._build(make_request, w3)
-        # v7 signature: (w3) -> object with wrap_make_request(make_request)
+            return self._build(*args)
         if len(args) == 1:
-            w3 = args[0]
-
             parent = self
 
             class V7Adapter:
-                def __init__(self, w3_):
-                    self.w3 = w3_
-
                 def wrap_make_request(self, make_request):
-                    return parent._build(make_request, self.w3)
+                    return parent._build(make_request, args[0])
 
-            return V7Adapter(w3)
+            return V7Adapter()
         raise TypeError("CompressionMiddleware: expected (make_request, w3) or (w3)")
 
 
@@ -112,77 +96,44 @@ class AsyncCompressionMiddleware:
         self.allow_fallback = allow_fallback
 
     def _build(self, make_request, w3):
-        async def middleware(method: str, params: list) -> dict:
-            if method != "eth_call" or not params:
-                return dict(await make_request(method, params))
-
-            tx = params[0] if len(params) >= 1 else {}
-            block = params[1] if len(params) >= 2 else "latest"
-            existing_override = params[2] if len(params) >= 3 else None
-
-            to = tx.get("to")
-            data_hex = tx.get("data")
-            if not to or not data_hex:
-                return dict(await make_request(method, params))
-
+        async def middleware(method, params):
+            if method != "eth_call":
+                return await make_request(method, params)
             try:
-                new_to, new_data, override, meta = compress_call_data(
-                    data_hex, to, alg=self.alg, min_size=self.min_size
-                )
+                payload = _compressed_params(params, alg=self.alg, min_size=self.min_size)
             except Exception:
-                return dict(await make_request(method, params))
-
-            if meta.get("algo") == "vanilla":
-                return dict(await make_request(method, params))
-
-            # Merge overrides if possible
-            merged_override = None
+                if not self.allow_fallback:
+                    raise
+                return await make_request(method, params)
+            if payload is None:
+                return await make_request(method, params)
             try:
-                if existing_override and override:
-                    merged = {**override}
-                    for k, v in existing_override.items():
-                        if k in merged and isinstance(merged[k], dict) and isinstance(v, dict):
-                            merged[k] = {**merged[k], **v}
-                        else:
-                            merged[k] = v
-                    merged_override = merged
-                else:
-                    merged_override = existing_override or override
+                result = await make_request(method, payload)
             except Exception:
-                merged_override = existing_override or override
-
-            new_tx = {"to": new_to, "data": new_data}
-            payload = [new_tx, block]
-            if merged_override:
-                payload.append(merged_override)
-
-            res = await make_request("eth_call", payload)
-            if isinstance(res, dict) and "result" in res:
-                return dict(res)
-
-            if self.allow_fallback:
-                return dict(await make_request(method, params))
-            return dict(res)
+                if not self.allow_fallback:
+                    raise
+            else:
+                if "result" in result or not self.allow_fallback:
+                    return result
+            return await make_request(method, params)
 
         return middleware
 
     def __call__(self, *args):  # v6/v7 compatibility
         if len(args) == 2:
-            make_request, w3 = args
-            return self._build(make_request, w3)
-        if len(args) == 1:
-            w3 = args[0]
 
+            async def build():
+                return self._build(*args)
+
+            return build()
+        if len(args) == 1:
             parent = self
 
             class V7AsyncAdapter:
-                def __init__(self, w3_):
-                    self.w3 = w3_
+                async def async_wrap_make_request(self, make_request):
+                    return parent._build(make_request, args[0])
 
-                def wrap_make_request(self, make_request):
-                    return parent._build(make_request, self.w3)
-
-            return V7AsyncAdapter(w3)
+            return V7AsyncAdapter()
         raise TypeError("AsyncCompressionMiddleware: expected (make_request, w3) or (w3)")
 
 
