@@ -1,6 +1,6 @@
 import math
 
-from .utils import hex_to_bytes as _hex_to_bytes, norm_hex
+from .utils import hex_to_bytes as _hex_to_bytes, norm_hex, return_or_revert
 
 MAX_128_BIT = (1 << 128) - 1
 MASK32 = (1 << 256) - 1
@@ -341,6 +341,6 @@ def _jit_decompressor(calldata: str) -> str:
         if 0x60 <= opcode <= 0x7F and data[i]:
             out.extend(data[i] or [])
 
-    # Epilogue: CALLVALUE; PUSH0 CALLDATALOAD; GAS; CALL; POP; RETURNDATACOPY/RETURN
-    suffix = bytes.fromhex("345f355af13d5f5f3e3d5ff3")
-    return "0x" + _uint8_to_hex(out) + suffix.hex()
+    # CALLVALUE; PUSH0; CALLDATALOAD; GAS; CALL. Preserve the success flag.
+    suffix = "345f355af1"
+    return "0x" + _uint8_to_hex(out) + suffix + return_or_revert(len(out) + 5)

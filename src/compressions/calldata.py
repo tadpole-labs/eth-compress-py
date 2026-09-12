@@ -1,4 +1,4 @@
-from .utils import hex_string as _hex_string, norm_hex
+from .utils import finish_forwarder, hex_string as _hex_string, norm_hex
 
 """
 Library for compressing and decompressing bytes.
@@ -136,10 +136,10 @@ def cd_decompress(data: str) -> str:
 
 
 def rle_fwd_bytecode(address: str) -> str:
-    return (
-        "0x5f5f5b368110602d575f8083813473"
+    return finish_forwarder(
+        "5f5f5b368110602d575f8083813473"
         + norm_hex(address)
-        + "5af1503d5f803e3d5ff35b600180820192909160031981019035185f1a8015604c57815301906002565b505f19815282820192607f9060031981019035185f1a818111156072575b160101906002565b838101368437606a56"
+        + "5af1{return_code}5b600180820192909160031981019035185f1a8015604c57815301906002565b505f19815282820192607f9060031981019035185f1a818111156072575b160101906002565b838101368437606a56"
     )
 
 

@@ -1,12 +1,12 @@
 # ethcompress
 
-Calldata compression for eth_call. Build and execute compressed calls that return byte‑identical results, without changing your decode logic. Strategies supported:
+Calldata compression for eth_call. For calls that do not depend on the caller or available gas, build and execute compressed calls without changing your decode logic (see limitations below). Strategies supported:
 
 - JIT: Generate a temporary on‑chain decompressor that reconstructs calldata and forwards the call.
 - FLZ: FastLZ variant used by Solady (LZ77‑style) with a tiny forwarder.
 - CD: Calldata run‑length encoding (00/FF runs) with a tiny forwarder.
 
-The library auto‑selects when helpful and safely falls back to vanilla.
+The library auto‑selects when helpful and can retry failed compressed requests as vanilla calls.
 
 Decompressor installs are done via eth_call state override at a fixed address:
 `0x00000000000000000000000000000000000000e0`.
@@ -105,18 +105,27 @@ else:
 
 - Threshold: by default, skip compression if calldata < 800 bytes (`min_size`).
 - Auto (alg="auto"):
-  - If original size ≥ 2096 bytes: prefer JIT (no FLZ/CD trials).
-  - Else: compute FLZ and CD once, pick the smaller compressed stream.
+  - Try JIT, FLZ and CD; pick the smallest combined forwarder bytecode and compressed calldata.
   - Always validate benefit: if (code + compressed) ≥ original, use vanilla.
+- Explicit `alg="jit"`, `"flz"` or `"cd"` only tries that codec, with the same benefit check.
+- `sizes` and `benefit` describe binary calldata plus bytecode, not the complete JSON-RPC request. JSON keys, addresses and override framing add overhead; measure serialized request bodies when estimating network savings. Auto selection trades extra encoding CPU for smaller payloads; use an explicit codec after benchmarking your workload.
 
-All strategies are transparent: the decompressor forwards to the real target and returns the same bytes as a vanilla call.
+## Execution limitations
+
+- The forwarder preserves the target call's success/failure and raw return/revert bytes, subject to sufficient gas for decompression and copying returndata.
+- Forwarding adds a CALL frame: the target sees the decompressor as `msg.sender`, not the original caller, and receives less gas. `tx.origin` and the forwarded `msg.value` are preserved. Do not enable compression for caller-sensitive or gas-sensitive calls; fallback cannot detect a successful but semantically different result.
+- The provider must support code state overrides and the selected block's EVM must support `PUSH0` (Shanghai or later). The fixed decompressor address must be safe to override in your execution context.
+- Compression only reduces request data. It does not compress the RPC response and can increase execution gas.
 
 
 ## Middleware Behavior
 
 - Intercepts only `eth_call` and only when `to`/`data` are present.
-- Builds compressed call and state override; merges with any existing override map.
-- On failure, returns vanilla result when `allow_fallback=True`.
+- Preserves transaction fields (`from`, `gas`, `value`, fee fields, etc.), block identifiers, existing state overrides and additional positional parameters without modifying the original request.
+- Adds decompressor code to the override map. If the caller already overrides the decompressor address (case-insensitive), skips compression.
+- Compression failures, transport exceptions and RPC error responses retry the exact original request once when `allow_fallback=True`. This also retries genuine contract reverts; use `False` when benchmarking or when retries are unwanted.
+- With `allow_fallback=False`, exceptions propagate and RPC errors are returned to Web3's normal error handling. Calls skipped because of size, benefit or override collisions still execute normally.
+- Supports Web3.py 6 and 7 middleware construction, including AsyncWeb3.
 
 
 ## API Reference (condensed)

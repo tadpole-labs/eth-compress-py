@@ -11,7 +11,8 @@ from .libzip import cd_compress, flz_compress
 HexLike = str | bytes
 
 
-DECOMPRESSOR_ADDRESS = "0x00000000000000000000000000000000000000e0"
+# Checksum form is required by Web3 v6's default address-validation middleware.
+DECOMPRESSOR_ADDRESS = "0x00000000000000000000000000000000000000E0"
 
 
 def _norm_hex(s: str) -> str:
@@ -51,13 +52,23 @@ class CompressedCall:
         tx = {"to": self.to, "data": self.data}
         override_payload = self.override if self.override else None
 
-        if override_payload is not None:
-            try:
-                res = w3.provider.make_request("eth_call", [tx, block, override_payload])
-                if isinstance(res, dict) and "result" in res:
-                    return str(res["result"])
-            except Exception:
-                pass
+        # Skipping compression is a normal call, not a failed compressed attempt.
+        if override_payload is None:
+            res = w3.provider.make_request("eth_call", [tx, block])
+            if isinstance(res, dict) and "result" in res:
+                return str(res["result"])
+            raise RuntimeError(f"eth_call failed: {res}")
+
+        try:
+            res = w3.provider.make_request("eth_call", [tx, block, override_payload])
+        except Exception:
+            if not self.allow_fallback:
+                raise
+        else:
+            if isinstance(res, dict) and "result" in res:
+                return str(res["result"])
+            if not self.allow_fallback:
+                raise RuntimeError(f"compressed eth_call failed: {res}")
 
         if not self.allow_fallback or not self._vanilla:
             raise RuntimeError("compressed call failed and fallback disabled")
@@ -86,56 +97,30 @@ def compress_call_data(
         }
         return target, data_hex, None, meta
 
-    # Heuristics matching the TS original:
-    # - If alg is specified, use it directly.
-    # - If auto and original_size >= 2096 -> choose JIT without trying FLZ/CD.
-    # - If auto and original_size < 4096 -> compute FLZ and CD, pick the one with smaller compressed data length.
-    selected: str | None = None
-    flz_hex: str | None = None
-    cd_hex: str | None = None
+    if alg not in ("auto", "jit", "flz", "cd"):
+        raise ValueError(f"unknown compression algorithm: {alg}")
 
-    if alg in ("flz", "cd", "jit"):
-        selected = alg
-    else:
-        if original_size >= 2096:
-            selected = "jit"
-        else:
-            try:
-                flz_hex = flz_compress(data_hex)
-            except Exception:
-                flz_hex = None
-            try:
-                cd_hex = cd_compress(data_hex)
-            except Exception:
-                cd_hex = None
-
-            if flz_hex is None and cd_hex is None:
-                meta = {
-                    "algo": "vanilla",
-                    "sizes": {"original": original_size, "compressed": original_size, "code": 0},
-                    "benefit": {"bytes_saved": 0, "pct": 0.0},
-                }
-                return target, data_hex, None, meta
-
-            if cd_hex is None:
-                selected = "flz"
-            elif flz_hex is None:
-                selected = "cd"
+    # Compare complete codec payloads, including each candidate's forwarder bytecode.
+    # Large calldata is not necessarily best served by JIT (e.g. repeated addresses).
+    candidates: list[tuple[int, str, str, str]] = []
+    for candidate in ("jit", "flz", "cd") if alg == "auto" else (alg,):
+        try:
+            if candidate == "jit":
+                code = jit_bytecode(data_hex)
+                calldata = _address_word(target)
+            elif candidate == "flz":
+                code = flz_fwd_bytecode(target)
+                calldata = flz_compress(data_hex)
             else:
-                # Compare hex lengths (as in TS), not total size including code.
-                selected = "flz" if len(flz_hex) < len(cd_hex) else "cd"
+                code = rle_fwd_bytecode(target)
+                calldata = cd_compress(data_hex)
+        except Exception:
+            if alg != "auto":
+                raise
+            continue
+        candidates.append((_size_bytes(code) + _size_bytes(calldata), candidate, calldata, code))
 
-    # Build according to selection and validate benefit by total size (code + calldata)
-    if selected == "jit":
-        code_sel = jit_bytecode(data_hex)
-        calldata_sel = _address_word(target)
-    elif selected == "flz":
-        calldata_sel = flz_hex if flz_hex is not None else flz_compress(data_hex)
-        code_sel = flz_fwd_bytecode(target)
-    elif selected == "cd":
-        calldata_sel = cd_hex if cd_hex is not None else cd_compress(data_hex)
-        code_sel = rle_fwd_bytecode(target)
-    else:
+    if not candidates or min(candidates)[0] >= original_size:
         meta = {
             "algo": "vanilla",
             "sizes": {"original": original_size, "compressed": original_size, "code": 0},
@@ -143,14 +128,7 @@ def compress_call_data(
         }
         return target, data_hex, None, meta
 
-    total_sel = _size_bytes(calldata_sel) + _size_bytes(code_sel)
-    if total_sel >= original_size:
-        meta = {
-            "algo": "vanilla",
-            "sizes": {"original": original_size, "compressed": original_size, "code": 0},
-            "benefit": {"bytes_saved": 0, "pct": 0.0},
-        }
-        return target, data_hex, None, meta
+    total_sel, selected, calldata_sel, code_sel = min(candidates)
 
     override = {DECOMPRESSOR_ADDRESS.lower(): {"code": code_sel}}
     benefit_bytes = original_size - total_sel
